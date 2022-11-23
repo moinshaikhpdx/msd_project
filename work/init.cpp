@@ -20,8 +20,60 @@ class cache_simulator
 
 	void update_state(unsigned int state, unsigned int set, unsigned int way);	
 	int check_state(unsigned int state, unsigned int set, unsigned int way);
-};
 
+    //util
+    unsigned int HexToDec(string inAddr);
+};
+unsigned int cache_simulator::HexToDec(string inAddr){                                      // Function For Hex To Unsigned Dec Address Converstion
+	//cout<<"[INFO]The input Hex Address is :"<<inAddr<<endl;
+	 int len;
+	 unsigned int dec = 0;
+	 int base = 1;
+	int i;
+
+	len = inAddr.size();
+	i = len-1;
+	if(!(len <= 8))
+		cout<<"[WARNING]: HexToDec Function -> Address Out Of Range "<<endl;
+	else{
+
+	   // cout<<"value of size is :"<<len<<endl;
+        if(len < 8) {
+            short int diff_len;
+            string s = "0";
+            diff_len = 8 - len;
+            for (int i = 0; i < diff_len; i++) {
+                s += inAddr;
+            }
+            //cout<<"[INFO]: The Corrected Hex Addr is -> "<<inAddr<<endl;
+        }
+	   do
+	   {
+	      //i = len;
+	        if (inAddr[i] >= '0' && inAddr[i] <= '9') {
+
+                 dec += (int(inAddr[i]) - 48) * base;
+
+                 base = base * 16;
+
+                }
+			else if (inAddr[i] >= 'A' && inAddr[i] <= 'F') {
+                 //cout<<"BASE is "<<base<<endl;
+                 dec += (int(inAddr[i]) - 55) * base;
+
+                 base = base * 16;}
+            else if(inAddr[i] >= 'a' && inAddr[i] <= 'f')
+            {
+               // cout<<"BASE is "<<base<<endl;
+                dec += (int(inAddr[i]) - 87) * base;
+                base = base*16;
+            }
+                	i--;
+            //cout<<"[DEC]   value     is -->"<<dec<<endl;
+	    }while(i>=0);
+	}
+  return dec;
+}
 void cache_simulator::update_state(unsigned int state, unsigned int set, unsigned int way)
 {
       cache[set].line[way] = (cache[set].line[way] & ~(3<<11)) | (state<<11);
@@ -37,9 +89,7 @@ int main(int argc, char* argv[])
 {
 
    cache_simulator cache_sim;
-   cache_sim.update_state(3, 10, 2);
-   int my_state = cache_sim.check_state(3, 10, 2);
-   cout <<my_state;
+
 
    if(argc == 1)
    {
@@ -78,7 +128,7 @@ int main(int argc, char* argv[])
                          }
                      }
 		      cout<<"Command = "<<command<<" Address = "<<address<<"\n";
-
+              cout<<cache_sim.HexToDec(address)<<endl;
 		      switch (command) {
 			      case 0: break;
 			      case 2: break;
