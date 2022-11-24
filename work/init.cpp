@@ -350,7 +350,7 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
         snoopresult_string="NOHIT";
 
 //if (NormalMode)
-	printf("SnoopResult: Address %x, SnoopResult: %d\n", Address, snoopresult_string.c_str());
+	printf("SnoopResult: Address %x, SnoopResult: %s\n", Address, snoopresult_string.c_str());
 }
 
 /* Used to simulate communication to our upper level cache */
