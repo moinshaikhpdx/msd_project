@@ -49,7 +49,9 @@ class cache_simulator
 	public:
 
 	void update_state(unsigned int state, unsigned int set, unsigned int way);	
-	int check_state(unsigned int state, unsigned int set, unsigned int way);
+	int check_state(unsigned int set, unsigned int way);
+    int check_hit(unsigned int set,unsigned int tag);
+    void read_cache( unsigned int addr);
 
 //
 
@@ -70,12 +72,98 @@ class cache_simulator
     void MessageToCache(int Message, unsigned int Address) ;     
 };
 
+int cache_simulator::check_hit(unsigned int set, unsigned int tag){
+  	int way_temp;
+	 for(int i = 0; i < 8 ; i++)
+	 {
+		 if(tag == bitExtracted(cache[set].line[i],11,1) && (check_state(set,i) != invalid)){
+			 way_temp = i;
+             break;
+             }
+		 else
 
+	         way_temp = 8;
+	 }
+	 return way_temp;
+}
+
+
+void cache_simulator::read_cache(unsigned int addr){
+
+	int tag_temp = bitExtracted(addr,11,22);
+    //cout<<"tag_temp = "<<tag_temp;
+	int set_temp = bitExtracted(addr,15,7);
+   // cout<<"set_temp = "<<set_temp;
+	int way_temp = check_hit(set_temp,tag_temp);
+   // cout<<"way_temp = "<<way_temp;
+	int current_state = check_state(set_temp,way_temp);
+
+    int LRU_addr = getLRU(set_temp);
+    int Snoop_result = GetSnoopResult(get_addr(set_temp,LRU_addr));
+    int Snoop_result_addr = GetSnoopResult(addr);
+    int empty_way = check_for_empty_way(set_temp);
+	if(way_temp == 8)
+	{// miss occured
+		cout<<"[INFO] CACHE MISS"<<endl;
+	     if(empty_way == 8)
+		 { ///replace line
+
+			 if(check_state(set_temp,LRU_addr) == modified){
+				 MessageToCache(GETLINE,get_addr(set_temp,LRU_addr));
+				 BusOperation(WRITE,get_addr(set_temp,LRU_addr),&Snoop_result);
+				 MessageToCache(INVALIDATE,get_addr(set_temp,LRU_addr));
+				 BusOperation(READ,addr,&Snoop_result_addr);
+				 MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
+			 }
+			 else
+			 {// empty way found
+			 BusOperation(READ,addr,&Snoop_result_addr);
+			 MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
+
+			 }
+            }
+        // cout<<"IN CASE EMPTY WAY IS FOUND THE SNOOP : "<<GetSnoopResult(addr)<<endl;
+         if(GetSnoopResult(addr) == NOHIT){
+                 if(check_for_empty_way(set_temp) == 8){
+                     cache[set_temp].line[empty_way] = tag_temp;
+                     update_state(exclusive,set_temp,LRU_addr);
+                     }
+                 else{
+                     cache[set_temp].line[LRU_addr] = tag_temp;
+                    update_state(exclusive,set_temp,empty_way);
+                    }
+               //  cout<<"IN EXCLUSIVE STATE"<<endl;
+                 }
+         else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM)){
+                 if(empty_way == 8){
+                     cache[set_temp].line[LRU_addr] = tag_temp;
+                     update_state(shared,set_temp,LRU_addr);
+                     }
+                 else{
+                    // cout<<"THE EMPTY WAY IN THE UPDATE STATE is :"<<empty_way<<"SET TEMP"<<set_temp<<endl;
+                     cache[set_temp].line[empty_way] = tag_temp;
+                    update_state(shared,set_temp,empty_way);
+                    //cout<<"UPDATED TAG IS :"<<cache[set_temp].line[empty_way]<<"\n and TAG BIT is :"<<tag_temp<<endl;
+                    }
+                // cout<<"IN SHAREEEEEEED STATE "<<endl;
+                 }
+         cout<<check_state(set_temp,empty_way)<<endl;
+         updatePLRU(set_temp,way_temp);
+
+	}
+	else{////way hit
+		cout<<"[INFO] CACHE HIT "<<endl;
+		update_state(current_state,set_temp,way_temp);
+		updatePLRU(set_temp,way_temp);
+		MessageToCache(SENDLINE,addr);
+	}
+  
+}
 
 int cache_simulator::check_for_empty_way(unsigned int set)
  {
    int way_temp;
-   for (int i=0; i<8 ; i++)
+   for (int i=7; i>=0 ; i--)
    {
    if(bitExtracted(cache[set].line[i], 2,12)==0)
    way_temp=i;
@@ -159,8 +247,11 @@ int cache_simulator::getLRU(unsigned int set)
 /* Simulate the reporting of snoop results by other caches */
 int cache_simulator::GetSnoopResult(unsigned int Address) {
 	/* returns HIT, NOHIT, or HITM */
-int SnoopResult =bitExtracted(Address, 2,22);
-return (SnoopResult);
+int SnoopResult =bitExtracted(Address,2,22);
+if(SnoopResult==3)
+    return NOHIT;
+else
+    return (SnoopResult);
 }
 
 /*
@@ -183,7 +274,7 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
 /* Used to simulate communication to our upper level cache */
 void cache_simulator::MessageToCache (int Message, unsigned int Address) {
 //if (NormalMode)
-	printf("L2: %d %h\n", Message, Address);
+	printf("L2: %d %d \n ", Message, Address);
 }
 
 int cache_simulator::bitExtracted (unsigned int addr, int k, int p) 
@@ -258,7 +349,7 @@ void cache_simulator::update_state(unsigned int state, unsigned int set, unsigne
 
 }
 
-int cache_simulator::check_state(unsigned int state, unsigned int set, unsigned int way)
+int cache_simulator::check_state(unsigned int set, unsigned int way)
 {
 	return (cache[set].line[way] >> 11);
 }
@@ -292,7 +383,7 @@ int main(int argc, char* argv[])
                   string s;
 		  int command;
 		  string address;
-		  int int_address;
+		  unsigned int int_address;
                   int string_count = 0;
                   while (getline(iss, s, ' '))
                      {
@@ -309,8 +400,8 @@ int main(int argc, char* argv[])
 		      cout<<"Command = "<<command<<" Address = "<<address<<"\n";
               int_address = cache_sim.HexToDec(address);
 		      switch (command) {
-			      case 0: break;
-			      case 2: break;
+			      case 0: cache_sim.read_cache(int_address); break;
+			      case 2: cache_sim.read_cache(int_address); break;
 			      case 3: break;
 			      case 4: break;
 			      case 5: break;
