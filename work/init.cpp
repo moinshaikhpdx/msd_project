@@ -170,7 +170,7 @@ void cache_simulator::read_cache(unsigned int addr){
 
 			 }
             }
-        // cout<<"IN CASE EMPTY WAY IS FOUND THE SNOOP : "<<GetSnoopResult(addr)<<endl;
+         BusOperation(READ,addr,&Snoop_result_addr);
          if(GetSnoopResult(addr) == NOHIT){
                  if(check_for_empty_way(set_temp) == 8){
                      cache[set_temp].line[empty_way] = tag_temp;
@@ -313,7 +313,7 @@ void cache_simulator::BusOperation (int BusOp, unsigned int Address, int *SnoopR
 {
 	*SnoopResult = GetSnoopResult(Address);
 //if (mode == "normal")
-	printf("BusOp: %d, Address: %h, Snoop Result: %d\n",BusOp,Address, *SnoopResult);
+	printf("BusOp: %d, Address: %x, Snoop Result: %d\n",BusOp,Address, *SnoopResult);
 }
 
 /* Report the result of our snooping bus operations performed by other caches */
