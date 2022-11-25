@@ -152,9 +152,11 @@ void cache_simulator::read_cache(unsigned int addr){
     int Snoop_result = GetSnoopResult(get_addr(set_temp,LRU_addr));
     int Snoop_result_addr = GetSnoopResult(addr);
     int empty_way = check_for_empty_way(set_temp);
+    cout<<"[][][]][]THE HIT NUMBER IS [][][][]"<<way_temp<<endl;
 	if(way_temp == 8)
 	{// miss occured
 		cout<<"[INFO] CACHE MISS"<<endl;
+        cout<<"----->THE EMPTY WAY IS <-------"<<way_temp<<endl;
 	     if(empty_way == 8)
 		 { ///replace line
 
@@ -197,7 +199,9 @@ void cache_simulator::read_cache(unsigned int addr){
                     }
                 // cout<<"IN SHAREEEEEEED STATE "<<endl;
                  }
-         cout<<check_state(set_temp,empty_way)<<endl;
+
+         cout<<"HELLLO HELLLO STATE DIAGRAM : ---> "<<check_state(set_temp,empty_way)<<endl;
+         MessageToCache(SENDLINE,addr);
          updatePLRU(set_temp,way_temp);
 
 	}
