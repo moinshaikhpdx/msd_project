@@ -126,11 +126,12 @@ else
       temp_addr=get_addr(set_temp, way_temp);
       MessageToCache(GETLINE,temp_addr);
       BusOperation(WRITE,temp_addr,&SnoopResult); //// bus op for replacing a modified line
-      MessageToCache(INVALIDATE,temp_addr);
+      MessageToCache(EVICTLINE,temp_addr);
       }
       BusOperation(RWIM,addr,&SnoopResult);
       cache[set_temp].line[way_temp] = tag_temp;
       update_state( modified, set_temp, way_temp);
+       MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
       updatePLRU(set_temp,way_temp);
    }
 }
