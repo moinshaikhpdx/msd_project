@@ -100,8 +100,8 @@ void cache_simulator::write_cache(unsigned int addr)
    cout<<"cache hit"<<endl;
    way_temp = check_hit (set_temp,tag_temp);
    if(check_state(set_temp,way_temp)==shared) //// bus op for hit
-   BusOperation(INVALIDATE,addr,&SnoopResult);
-   update_state(modified, set_temp, way_temp);
+    BusOperation(INVALIDATE,addr,&SnoopResult);
+   update_state(modified, set_temp, way_temp);   
    MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
    updatePLRU(set_temp,way_temp);
 }
@@ -113,8 +113,8 @@ else
       way_temp=check_for_empty_way(set_temp);
       BusOperation(RWIM,addr,&SnoopResult);//// bus op for miss with an empty way
       cache[set_temp].line[way_temp] = tag_temp;
-      update_state( modified, set_temp, way_temp);
-      MessageToCache(SENDLINE,addr);
+      update_state (modified, set_temp, way_temp);
+      MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
       updatePLRU(set_temp,way_temp);
    }
    else 
@@ -214,10 +214,13 @@ void cache_simulator::read_cache(unsigned int addr){
 int cache_simulator::check_for_empty_way(unsigned int set)
  {
    int way_temp;
-   for (int i=7; i>=0 ; i--)
+   for (int i=0; i<=7 ; i++)
    {
    if(bitExtracted(cache[set].line[i], 2,12)==0)
+   {
    way_temp=i;
+   break;
+   }
    else
    way_temp=8;  
    }
@@ -350,7 +353,7 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
         snoopresult_string="NOHIT";
 
 //if (NormalMode)
-	printf("SnoopResult: Address %x, SnoopResult: %d\n", Address, snoopresult_string.c_str());
+	printf("SnoopResult: Address %x, SnoopResult: %s\n", Address, snoopresult_string.c_str());
 }
 
 /* Used to simulate communication to our upper level cache */
@@ -380,7 +383,7 @@ int cache_simulator::bitExtracted (unsigned int addr, int k, int p)
 int cache_simulator::get_addr(unsigned int set,unsigned int way)
 {
    int temp_addr=0;
-   int temp_tag=bitExtracted(cache[set].line[way], 11,22);
+   int temp_tag=bitExtracted(cache[set].line[way], 11,1);
    temp_addr=set<<6;
    temp_addr= temp_addr|temp_tag<<21;
    return(temp_addr);
