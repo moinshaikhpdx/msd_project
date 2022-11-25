@@ -101,7 +101,9 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case modified:
+						MessageToCache (GETLINE, addr);
 						BusOperation (WRITE, addr, &SnoopResult); 
+						MessageToCache (EVICTLINE, addr);
 						PutSnoopResult(addr, HITM);
   						update_state(shared, set_temp, way_temp);
 						break;
@@ -136,17 +138,20 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case exclusive:
+						MessageToCache (INVALIDATELINE, addr);
   						update_state(invalid, set_temp, way_temp);
 						break;
 
 					case shared:
+						MessageToCache (INVALIDATELINE, addr);
   						update_state(invalid, set_temp, way_temp);
 						break;
 
-					case modified:
-						BusOperation (WRITE, addr, &SnoopResult); 
-  						update_state(invalid, set_temp, way_temp);
-						break;
+				//	case modified:
+						
+				//		BusOperation (WRITE, addr, &SnoopResult); 
+  				//		update_state(invalid, set_temp, way_temp);
+				//		break;
 
 				}
 
@@ -160,13 +165,18 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case exclusive:
+						MessageToCache (INVALIDATELINE, addr);
   						update_state(invalid, set_temp, way_temp);
 						break;
 
 					case shared:
+						MessageToCache (INVALIDATELINE, addr);
   						update_state(invalid, set_temp, way_temp);
 						break;
+
 					case modified:
+						PutSnoopResult(addr, HITM);
+						MessageToCache (EVICTLINE, addr);
 						BusOperation (WRITE, addr, &SnoopResult); 
   						update_state(invalid, set_temp, way_temp);
 						break;
