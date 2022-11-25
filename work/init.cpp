@@ -207,7 +207,6 @@ void cache_simulator::read_cache(unsigned int addr){
 		updatePLRU(set_temp,way_temp);
 		MessageToCache(SENDLINE,addr);
 	}
-  
 }
 
 
