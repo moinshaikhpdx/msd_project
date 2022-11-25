@@ -50,8 +50,9 @@ class cache_simulator
 
 	void update_state(unsigned int state, unsigned int set, unsigned int way);	
 	int check_state(unsigned int set, unsigned int way);
-    int check_hit(unsigned int set,unsigned int tag);
-    void read_cache( unsigned int addr);
+	void snooping(int operation, int addr);
+        int check_hit(unsigned int set,unsigned int tag);
+        void read_cache( unsigned int addr);
 
 
 
@@ -72,6 +73,112 @@ class cache_simulator
     void MessageToCache(int Message, unsigned int Address) ;     
 };
 
+void cache_simulator::snooping(int operation, int addr)
+{
+
+        int set_temp =bitExtracted(addr, 15,7);
+        int tag_temp =bitExtracted(addr, 11,22);
+        int way_temp = check_hit(set_temp,tag_temp);
+	int SnoopResult;
+	if(way_temp != 8)
+	{
+		switch(operation)
+		{
+			case READ :
+
+				 switch(check_state(set_temp, way_temp))
+				{
+					case invalid:
+						break;
+
+					case exclusive:
+						PutSnoopResult(addr, HIT);
+  						update_state(shared, set_temp, way_temp);
+						break;
+
+					case shared:
+						PutSnoopResult(addr, HIT);
+						break;
+
+					case modified:
+						BusOperation (WRITE, addr, &SnoopResult); 
+						PutSnoopResult(addr, HITM);
+  						update_state(shared, set_temp, way_temp);
+						break;
+
+				}
+
+			       	break;
+			
+			case WRITE :
+
+				 switch(check_state(set_temp, way_temp))
+				{
+					case invalid:
+						break;
+
+					case exclusive:
+						break;
+
+					case shared:
+						break;
+
+					case modified:
+						break;
+				}
+	
+			       	break;
+
+			case INVALIDATE :
+				 switch(check_state(set_temp, way_temp))
+				{
+					case invalid:
+						break;
+
+					case exclusive:
+  						update_state(invalid, set_temp, way_temp);
+						break;
+
+					case shared:
+  						update_state(invalid, set_temp, way_temp);
+						break;
+
+					case modified:
+						BusOperation (WRITE, addr, &SnoopResult); 
+  						update_state(invalid, set_temp, way_temp);
+						break;
+
+				}
+
+		                break;
+
+			case RWIM :
+
+				 switch(check_state(set_temp, way_temp))
+				{
+					case invalid:
+						break;
+
+					case exclusive:
+  						update_state(invalid, set_temp, way_temp);
+						break;
+
+					case shared:
+  						update_state(invalid, set_temp, way_temp);
+						break;
+					case modified:
+						BusOperation (WRITE, addr, &SnoopResult); 
+  						update_state(invalid, set_temp, way_temp);
+						break;
+				}
+
+		       		break;
+
+		}
+	}
+
+
+}
 int cache_simulator::check_hit(unsigned int set, unsigned int tag){
   	int way_temp;
 	 for(int i = 0; i < 8 ; i++)
@@ -497,12 +604,12 @@ int main(int argc, char* argv[])
               int_address = cache_sim.HexToDec(address);
 		      switch (command) {
 			      case 0: cache_sim.read_cache(int_address); break;
-                  case 1: cache_sim.write_cache(int_address); break;
+	                      case 1: cache_sim.write_cache(int_address); break;
 			      case 2: cache_sim.read_cache(int_address); break;
-			      case 3: break;
-			      case 4: break;
-			      case 5: break;
-			      case 6: break;
+			      case 3: cache_sim.snooping(INVALIDATE, int_address); break;
+			      case 4: cache_sim.snooping(READ, int_address); break;
+			      case 5: cache_sim.snooping(WRITE, int_address); break;
+			      case 6: cache_sim.snooping(RWIM, int_address); break;
 			      case 7: break;
 			      case 8: break;
 			      case 9: break;
