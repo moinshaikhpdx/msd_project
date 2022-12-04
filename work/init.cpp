@@ -42,36 +42,75 @@ class cache_simulator
 	
 	struct {
 		short int PLRU; ///////////// LSB being the start of the root ////////// {d,e,f,g,b,c,a}////////////////// 
-		int line [ways]; //////////// Tag array//////// {Messi bits[1:0],tagbits} ////////////// 
+		int tag_array [ways]; //////////// Tag array//////// {Messi bits[1:0],tagbits} ////////////// 
 	} cache[sets];
 
 
 	public:
-
+//m
 	void update_state(unsigned int state, unsigned int set, unsigned int way);	
 	int check_state(unsigned int set, unsigned int way);
 	void snooping(int operation, int addr);
+
+    //j
         int check_hit(unsigned int set,unsigned int tag);
         void read_cache( unsigned int addr);
-
-
-
-
-    //utilities
-    unsigned int HexToDec(string inAddr);
-
-    int get_addr(unsigned int set,unsigned int way);
-    int bitExtracted(unsigned int addr, int k, int p);            ///////////// used to select tag or index or byte offset from addr////////////https://www.geeksforgeeks.org/extract-k-bits-given-position-number/
-    void updatePLRU(unsigned int set,unsigned int way);
-    int getLRU(unsigned int set);
-    int check_for_empty_way(unsigned int set);
+        unsigned int HexToDec(string inAddr);
+//s
+       void updatePLRU(unsigned int set,unsigned int way);
     void write_cache( unsigned int addr);
+    int getLRU(unsigned int set); 
+    
+//d
+ int get_addr(unsigned int set,unsigned int way);
+ int bitExtracted(unsigned int addr, int k, int p);            ///////////// used to select tag or index or byte offset from addr////////////https://www.geeksforgeeks.org/extract-k-bits-given-position-number/
+ int check_for_empty_way(unsigned int set);
+ void clear_cache();
+void print_cache();
+
 ///// Mark faust's functions 
 	int GetSnoopResult(unsigned int Address);
     void BusOperation(int BusOp, unsigned int Address, int *SnoopResult);
     void PutSnoopResult(unsigned int Address, int SnoopResult);
     void MessageToCache(int Message, unsigned int Address) ;     
 };
+
+void cache_simulator::print_cache()
+{
+	printf("------------------------------------------------------------------------ \n");
+    int valid=0;
+    int set_no;
+    for(int i=0;i<=32767;i++)
+{
+      
+    for(int j=0;j<=7;j++)
+    {
+    if(check_state(i,j)!=0)
+    {
+set_no=i;
+printf("cache line %x \n",cache[i].tag_array[j]);
+valid=1;
+    }
+    else
+valid=0;
+    }
+    if(valid==1)
+    {
+    printf("Set number %d \n",set_no);
+    printf("psuedo bits (HEXA) %x \n",cache[i].PLRU);
+     }
+}
+}
+
+void cache_simulator::clear_cache()
+{
+    for(int i=0;i<=32767;i++)
+{
+    cache[i].PLRU=0;
+    for(int j=0;j<=7;j++)
+    cache[i].tag_array[j]=0;
+}
+}
 
 void cache_simulator::snooping(int operation, int addr)
 {
@@ -101,8 +140,10 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case modified:
-						BusOperation (WRITE, addr, &SnoopResult); 
 						PutSnoopResult(addr, HITM);
+                        MessageToCache(GETLINE,get_addr(set_temp,way_temp));
+						BusOperation (WRITE, (addr&0xffffffc0), &SnoopResult); /// snarfing is done 
+						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(shared, set_temp, way_temp);
 						break;
 
@@ -136,20 +177,16 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case exclusive:
-  						update_state(invalid, set_temp, way_temp);
 						break;
 
 					case shared:
+						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(invalid, set_temp, way_temp);
 						break;
 
 					case modified:
-						BusOperation (WRITE, addr, &SnoopResult); 
-  						update_state(invalid, set_temp, way_temp);
 						break;
-
 				}
-
 		                break;
 
 			case RWIM :
@@ -160,14 +197,18 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 
 					case exclusive:
+						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(invalid, set_temp, way_temp);
 						break;
 
 					case shared:
+						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(invalid, set_temp, way_temp);
 						break;
 					case modified:
-						BusOperation (WRITE, addr, &SnoopResult); 
+						MessageToCache(GETLINE,get_addr(set_temp,way_temp));
+						BusOperation (WRITE, (addr&0xffffffc0), &SnoopResult); 
+  						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(invalid, set_temp, way_temp);
 						break;
 				}
@@ -183,7 +224,7 @@ int cache_simulator::check_hit(unsigned int set, unsigned int tag){
   	int way_temp;
 	 for(int i = 0; i < 8 ; i++)
 	 {
-		 if(tag == bitExtracted(cache[set].line[i],11,1) && (check_state(set,i) != invalid))
+		 if(tag == bitExtracted(cache[set].tag_array[i],11,1) && (check_state(set,i) != invalid))
          {
 			 way_temp = i;
              break;
@@ -208,7 +249,9 @@ void cache_simulator::write_cache(unsigned int addr)
    cout<<"cache hit"<<endl;
    way_temp = check_hit (set_temp,tag_temp);
    if(check_state(set_temp,way_temp)==shared) //// bus op for hit
-    BusOperation(INVALIDATE,addr,&SnoopResult);
+   { 
+    BusOperation(INVALIDATE,(addr&0xffffffc0),&SnoopResult);
+   }
    update_state(modified, set_temp, way_temp);   
    MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
    updatePLRU(set_temp,way_temp);
@@ -219,8 +262,8 @@ else
    {/////empty way found////////////
       cout<<"cache miss and empty way found"<<endl;
       way_temp=check_for_empty_way(set_temp);
-      BusOperation(RWIM,addr,&SnoopResult);//// bus op for miss with an empty way
-      cache[set_temp].line[way_temp] = tag_temp;
+      BusOperation(RWIM,(addr&0xfffffff8),&SnoopResult);//// bus op for miss with an empty way
+      cache[set_temp].tag_array[way_temp] = tag_temp;
       update_state (modified, set_temp, way_temp);
       MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
       updatePLRU(set_temp,way_temp);
@@ -232,12 +275,11 @@ else
       if(check_state(set_temp, way_temp)==modified);
       {
       temp_addr=get_addr(set_temp, way_temp);
-      MessageToCache(GETLINE,temp_addr);
-      BusOperation(WRITE,temp_addr,&SnoopResult); //// bus op for replacing a modified line
       MessageToCache(EVICTLINE,temp_addr);
+      BusOperation(WRITE,temp_addr,&SnoopResult); //// bus op for replacing a modified line
       }
-      BusOperation(RWIM,addr,&SnoopResult);
-      cache[set_temp].line[way_temp] = tag_temp;
+      BusOperation(RWIM,(addr&0xfffffff8),&SnoopResult);
+      cache[set_temp].tag_array[way_temp] = tag_temp;
       update_state( modified, set_temp, way_temp);
        MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
       updatePLRU(set_temp,way_temp);
@@ -266,33 +308,32 @@ void cache_simulator::read_cache(unsigned int addr){
 
 			 if(check_state(set_temp,LRU_addr) == modified)
              {
-				 MessageToCache(GETLINE,get_addr(set_temp,LRU_addr));
+				 MessageToCache(EVICTLINE,get_addr(set_temp,LRU_addr));
 				 BusOperation(WRITE,get_addr(set_temp,LRU_addr),&Snoop_result);
-				 MessageToCache(INVALIDATE,get_addr(set_temp,LRU_addr));
-				 BusOperation(READ,addr,&Snoop_result_addr);
+				 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
                  if(GetSnoopResult(addr) == NOHIT)
                  {
-                     cache[set_temp].line[LRU_addr] = tag_temp;
+                     cache[set_temp].tag_array[LRU_addr] = tag_temp;
                      update_state(exclusive,set_temp,LRU_addr);
                  }
                  else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
                  {
-                     cache[set_temp].line[LRU_addr] = tag_temp;
+                     cache[set_temp].tag_array[LRU_addr] = tag_temp;
                      update_state(shared,set_temp,LRU_addr);
                  }
 				 MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
 			 }
 			 else
 			 {
-			    BusOperation(READ,addr,&Snoop_result_addr);
+			    BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
                 if(GetSnoopResult(addr) == NOHIT)
                 {
-                    cache[set_temp].line[LRU_addr] = tag_temp;
+                    cache[set_temp].tag_array[LRU_addr] = tag_temp;
                     update_state(exclusive,set_temp,LRU_addr);
                 }
                 else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
                 {
-                    cache[set_temp].line[LRU_addr] = tag_temp;
+                    cache[set_temp].tag_array[LRU_addr] = tag_temp;
                     update_state(shared,set_temp,LRU_addr);
                 }
 			    MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
@@ -303,16 +344,16 @@ void cache_simulator::read_cache(unsigned int addr){
              cout<<"[INFO] CACHE MISS AND FOUND A EMPTY LINE "<<endl;
              if(GetSnoopResult(addr) == NOHIT)
              {
-                 BusOperation(READ,addr,&Snoop_result_addr);
-                 cache[set_temp].line[empty_way] = tag_temp;
+                 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+                 cache[set_temp].tag_array[empty_way] = tag_temp;
                  update_state(exclusive,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
                  MessageToCache(SENDLINE,get_addr(set_temp,empty_way));
              }
              else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
              {
-                 BusOperation(READ,addr,&Snoop_result_addr);
-                 cache[set_temp].line[empty_way] = tag_temp;
+                 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+                 cache[set_temp].tag_array[empty_way] = tag_temp;
                  update_state(shared,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
                  MessageToCache(SENDLINE,get_addr(set_temp,empty_way));
@@ -333,7 +374,7 @@ int cache_simulator::check_for_empty_way(unsigned int set)
    int way_temp;
    for (int i=0; i<=7 ; i++)
    {
-   if(bitExtracted(cache[set].line[i], 2,12)==0)
+   if(bitExtracted(cache[set].tag_array[i], 2,12)==0)
    {
    way_temp=i;
    break;
@@ -343,6 +384,7 @@ int cache_simulator::check_for_empty_way(unsigned int set)
    }
    return way_temp;
  }
+
 
 void cache_simulator::updatePLRU(unsigned int set,unsigned int way) {
 	switch (way)
@@ -418,11 +460,13 @@ int cache_simulator::getLRU(unsigned int set)
 /* Simulate the reporting of snoop results by other caches */
 int cache_simulator::GetSnoopResult(unsigned int Address) {
 	/* returns HIT, NOHIT, or HITM */
-int SnoopResult =bitExtracted(Address,2,22);
-if(SnoopResult==3)
+int SnoopResult =bitExtracted(Address,2,1);
+if(SnoopResult==0)
+    return HIT;
+else if(SnoopResult==1)
+    return HITM;
+else 
     return NOHIT;
-else
-    return (SnoopResult);
 }
 
 
@@ -500,7 +544,7 @@ int cache_simulator::bitExtracted (unsigned int addr, int k, int p)
 int cache_simulator::get_addr(unsigned int set,unsigned int way)
 {
    int temp_addr=0;
-   int temp_tag=bitExtracted(cache[set].line[way], 11,1);
+   int temp_tag=bitExtracted(cache[set].tag_array[way], 11,1);
    temp_addr=set<<6;
    temp_addr= temp_addr|temp_tag<<21;
    return(temp_addr);
@@ -560,14 +604,13 @@ unsigned int cache_simulator::HexToDec(string inAddr){                          
 
 void cache_simulator::update_state(unsigned int state, unsigned int set, unsigned int way)
 {
-      cache[set].line[way] = (cache[set].line[way] & ~(3<<11)) | (state<<11);
-
+      cache[set].tag_array[way] = (cache[set].tag_array[way] & ~(3<<11)) | (state<<11);
 }
 
 
 int cache_simulator::check_state(unsigned int set, unsigned int way)
 {
-	return (cache[set].line[way] >> 11);
+	return (cache[set].tag_array[way] >> 11);
 }
 
 int main(int argc, char* argv[])
@@ -625,8 +668,8 @@ int main(int argc, char* argv[])
 			      case 5: cache_sim.snooping(WRITE, int_address); break;
 			      case 6: cache_sim.snooping(RWIM, int_address); break;
 			      case 7: break;
-			      case 8: break;
-			      case 9: break;
+			      case 8: cache_sim.clear_cache(); break;
+			      case 9: cache_sim.print_cache();break;
 			}
                }
      }
