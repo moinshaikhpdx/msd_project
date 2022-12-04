@@ -77,29 +77,32 @@ void print_cache();
 
 void cache_simulator::print_cache()
 {
-	printf("------------------------------------------------------------------------ \n");
-    int valid=0;
+    printf("------------------------------------------------------------------------ \n");
+    printf("MESI         TAG         SET         WAY\n");
+    int valid;
     int set_no;
     for(int i=0;i<=32767;i++)
-{
-      
-    for(int j=0;j<=7;j++)
     {
-    if(check_state(i,j)!=0)
-    {
-set_no=i;
-printf("cache line %x \n",cache[i].tag_array[j]);
-valid=1;
+	 valid = 0;
+   	 for(int j=0;j<=7;j++)
+    	{
+    		if(check_state(i,j)!=0)
+    		{
+			switch(check_state(i, j))
+			{
+				case invalid:   printf("Invalid");break;
+				case shared:    printf("shared");break;
+				case exclusive: printf("exclusive");break;
+				case modified:	printf("modified");break;
+			}
+   	     		set_no=i;
+    	     		printf("       %d        %d        %d\n",cache[i].tag_array[j], set_no, j);
+			valid = 1;
+        	}
+       }
+       if(valid)
+       	printf("psuedo bits (HEXA) %x \n",cache[i].PLRU);
     }
-    else
-valid=0;
-    }
-    if(valid==1)
-    {
-    printf("Set number %d \n",set_no);
-    printf("psuedo bits (HEXA) %x \n",cache[i].PLRU);
-     }
-}
 }
 
 void cache_simulator::clear_cache()
