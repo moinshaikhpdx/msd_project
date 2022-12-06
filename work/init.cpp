@@ -80,6 +80,8 @@ class cache_simulator
 
 void cache_simulator::report()
 {
+printf("\n----------------------------------------------------------------------------------------------------- \n");
+printf("                                        Simulation Results\n");
 printf("----------------------------------------------------------------------------------------------------- \n");
 printf("Number of cache reads = %f \n",cache_reads);
 printf("Number of cache writes = %f \n",cache_writes);
@@ -92,7 +94,6 @@ printf("Cache hit ratio  %f \n",cache_hit_ratio);
 void cache_simulator::print_cache()
 {
     printf("Printing valid cache lines \n");
-    printf("//////////////////////////////////////////////////////////////////////////// \n");
     printf("MESI               TAG         SET         WAY\n");
     int valid;
     int set_no;
@@ -690,7 +691,7 @@ int main(int argc, char* argv[])
               cache_sim.NormalMode=0;
               if(cache_sim.NormalMode==1)
               {
-              cout<<"//////////////////////////////////////////////////////////////////////////////////////"<<endl;
+              cout<<"\n--------------------------------------------------------------------------------------"<<endl;
 		      cout<<"Command = "<<command<<" Address = "<<address<<"\n";
 		  }
               int_address = cache_sim.HexToDec(address);
