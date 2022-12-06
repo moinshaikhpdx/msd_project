@@ -111,7 +111,7 @@ void cache_simulator::print_cache()
 				case modified:	printf("modified ");break;
 			}
    	     		set_no=i;
-    	     		printf("          %x        %x        %d\n",cache[i].tag_array[j], set_no, j);
+    	     		printf("          %x        %x        %d\n",bitExtracted(cache[i].tag_array[j], 11,1), set_no, j);
     	     		
 			valid = 1;
         	}
