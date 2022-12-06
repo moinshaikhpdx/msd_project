@@ -94,6 +94,9 @@ printf("Cache hit ratio  %f \n",cache_hit_ratio);
 void cache_simulator::print_cache()
 {
     printf("Printing valid cache lines \n");
+
+
+    printf("-------------------------------------------------------------------------- \n");
     printf("MESI               TAG         SET         WAY\n");
     int valid;
     int set_no;
@@ -296,7 +299,7 @@ else
    {////// replace another line //////
       cout<<"cache miss and replacing another line"<<endl;
       way_temp=getLRU(set_temp);
-      if(check_state(set_temp, way_temp)==modified);
+      if(check_state(set_temp, way_temp)==modified)
       {
       		temp_addr=get_addr(set_temp, way_temp);
       		MessageToCache(EVICTLINE,temp_addr);
@@ -340,11 +343,13 @@ void cache_simulator::read_cache(unsigned int addr){
                  {
                      cache[set_temp].tag_array[LRU_addr] = tag_temp;
                      update_state(exclusive,set_temp,LRU_addr);
+                     updatePLRU(set_temp,LRU_addr);
                  }
                  else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
                  {
                      cache[set_temp].tag_array[LRU_addr] = tag_temp;
                      update_state(shared,set_temp,LRU_addr);
+                     updatePLRU(set_temp,LRU_addr);
                  }
 				 MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
 			 }
@@ -355,11 +360,13 @@ void cache_simulator::read_cache(unsigned int addr){
                 {
                     cache[set_temp].tag_array[LRU_addr] = tag_temp;
                     update_state(exclusive,set_temp,LRU_addr);
+                    updatePLRU(set_temp,LRU_addr);
                 }
                 else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
                 {
                     cache[set_temp].tag_array[LRU_addr] = tag_temp;
                     update_state(shared,set_temp,LRU_addr);
+                    updatePLRU(set_temp,LRU_addr);
                 }
 			    MessageToCache(SENDLINE,get_addr(set_temp,LRU_addr));
 
