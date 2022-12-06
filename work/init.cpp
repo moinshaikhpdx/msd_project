@@ -111,7 +111,8 @@ void cache_simulator::print_cache()
 				case modified:	printf("modified ");break;
 			}
    	     		set_no=i;
-    	     		printf("          %d        %d        %d\n",cache[i].tag_array[j], set_no, j);
+    	     		printf("          %x        %x        %d\n",cache[i].tag_array[j], set_no, j);
+    	     		
 			valid = 1;
         	}
        }
@@ -369,6 +370,7 @@ void cache_simulator::read_cache(unsigned int addr){
              {
                  BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                  cache[set_temp].tag_array[empty_way] = tag_temp;
+
                  update_state(exclusive,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
                  MessageToCache(SENDLINE,get_addr(set_temp,empty_way));
@@ -377,6 +379,7 @@ void cache_simulator::read_cache(unsigned int addr){
              {
                  BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                  cache[set_temp].tag_array[empty_way] = tag_temp;
+                  
                  update_state(shared,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
                  MessageToCache(SENDLINE,get_addr(set_temp,empty_way));
