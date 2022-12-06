@@ -24,7 +24,7 @@ using namespace std;
 // this is when L2's replacement policy causes eviction of a line that
 // may be present in L1. It could be done by a combination of GETLINE
 // (if the line is potentially modified in L1) and INVALIDATELINE.
-
+float cache_reads, cache_writes, cache_hits, cache_misses, cache_hit_ratio; 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /* Used to represent states in MESI protocol */
 #define invalid 0 
@@ -47,6 +47,7 @@ class cache_simulator
 
 
 	public:
+		int NormalMode;
 //m
 	void update_state(unsigned int state, unsigned int set, unsigned int way);	
 	int check_state(unsigned int set, unsigned int way);
@@ -60,6 +61,7 @@ class cache_simulator
        void updatePLRU(unsigned int set,unsigned int way);
        void write_cache( unsigned int addr);
        int getLRU(unsigned int set); 
+         void report();
     
 //d
        int get_addr(unsigned int set,unsigned int way);
@@ -70,10 +72,22 @@ class cache_simulator
 
 ///// Mark faust's functions 
        int GetSnoopResult(unsigned int Address);
-       void BusOperation(int BusOp, unsigned int Address, int *SnoopResult);
+       void BusOperation(int BusOp, unsigned int Address, int SnoopResult);
        void PutSnoopResult(unsigned int Address, int SnoopResult);
        void MessageToCache(int Message, unsigned int Address) ;     
 };
+
+
+void cache_simulator::report()
+{
+printf("----------------------------------------------------------------------------------------------------- \n");
+printf("Number of cache reads = %f \n",cache_reads);
+printf("Number of cache writes = %f \n",cache_writes);
+printf("Number of cache hits  = %f \n",cache_hits);
+printf("Number of cache misses = %f \n",cache_misses);
+cache_hit_ratio= cache_hits/(cache_hits+cache_misses);
+printf("Cache hit ratio  %f \n",cache_hit_ratio);
+}
 
 void cache_simulator::print_cache()
 {
@@ -147,7 +161,7 @@ void cache_simulator::snooping(int operation, int addr)
 					case modified:
 						PutSnoopResult(addr, HITM);
                         MessageToCache(GETLINE,get_addr(set_temp,way_temp));
-						BusOperation (WRITE, (addr&0xffffffc0), &SnoopResult); /// snarfing is done 
+						BusOperation (WRITE, (addr&0xffffffc0), GetSnoopResult(addr)); /// snarfing is done 
 						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(shared, set_temp, way_temp);
 						break;
@@ -212,7 +226,7 @@ void cache_simulator::snooping(int operation, int addr)
 						break;
 					case modified:
 						MessageToCache(GETLINE,get_addr(set_temp,way_temp));
-						BusOperation (WRITE, (addr&0xffffffc0), &SnoopResult); 
+						BusOperation (WRITE, (addr&0xffffffc0), GetSnoopResult(addr)); 
   						MessageToCache(INVALIDATE,get_addr(set_temp,way_temp));
   						update_state(invalid, set_temp, way_temp);
 						break;
@@ -243,6 +257,7 @@ int cache_simulator::check_hit(unsigned int set, unsigned int tag){
 
 void cache_simulator::write_cache(unsigned int addr)
 {
+	cache_writes++;
    int way_temp;
    int set_temp =bitExtracted(addr, 15,7);
    int tag_temp =bitExtracted(addr, 11,22);
@@ -251,11 +266,12 @@ void cache_simulator::write_cache(unsigned int addr)
 
    if(check_hit (set_temp,tag_temp)!=8)
    {///////hit occured/////////////
+   	cache_hits++;
    	cout<<"cache hit"<<endl;
    	way_temp = check_hit (set_temp,tag_temp);
    	if(check_state(set_temp,way_temp)==shared) //// bus op for hit
    	{ 
-    		BusOperation(INVALIDATE,(addr&0xffffffc0),&SnoopResult);
+    		BusOperation(INVALIDATE,(addr&0xffffffc0),GetSnoopResult(addr));
    	}
    	update_state(modified, set_temp, way_temp);   
    	MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
@@ -263,11 +279,12 @@ void cache_simulator::write_cache(unsigned int addr)
 }
 else 
 {///// miss occured//////
+	cache_misses++;
    if(check_for_empty_way(set_temp)!=8)
    {/////empty way found////////////
       cout<<"cache miss and empty way found"<<endl;
       way_temp=check_for_empty_way(set_temp);
-      BusOperation(RWIM,(addr&0xfffffff8),&SnoopResult);//// bus op for miss with an empty way
+      BusOperation(RWIM,(addr&0xfffffff8),GetSnoopResult(addr));//// bus op for miss with an empty way
       cache[set_temp].tag_array[way_temp] = tag_temp;
       update_state (modified, set_temp, way_temp);
       MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
@@ -281,9 +298,9 @@ else
       {
       		temp_addr=get_addr(set_temp, way_temp);
       		MessageToCache(EVICTLINE,temp_addr);
-      		BusOperation(WRITE,temp_addr,&SnoopResult); //// bus op for replacing a modified line
+      		BusOperation(WRITE,temp_addr,GetSnoopResult(addr)); //// bus op for replacing a modified line
       }
-      BusOperation(RWIM,(addr&0xfffffff8),&SnoopResult);
+      BusOperation(RWIM,(addr&0xfffffff8),GetSnoopResult(addr));
       cache[set_temp].tag_array[way_temp] = tag_temp;
       update_state( modified, set_temp, way_temp);
        MessageToCache(SENDLINE,get_addr(set_temp,way_temp));
@@ -296,17 +313,18 @@ else
 
 void cache_simulator::read_cache(unsigned int addr){
 
+  cache_reads++;
 	int tag_temp = bitExtracted(addr,11,22);
 	int set_temp = bitExtracted(addr,15,7);
 	int way_temp = check_hit(set_temp,tag_temp);
 	int current_state = check_state(set_temp,way_temp);
 
     	int LRU_addr = getLRU(set_temp);
-    	int Snoop_result = GetSnoopResult(get_addr(set_temp,LRU_addr));
-    	int Snoop_result_addr = GetSnoopResult(addr);
+    	int Snoop_result;
     	int empty_way = check_for_empty_way(set_temp);
 	if(way_temp == 8)
 	{// miss occured
+			cache_misses++;
 	     if(empty_way == 8)
 		 { ///replace line
              cout<<"[INFO] CACHE MISS AND REPLACING A LINE "<<endl;
@@ -314,8 +332,8 @@ void cache_simulator::read_cache(unsigned int addr){
 			 if(check_state(set_temp,LRU_addr) == modified)
              {
 				 MessageToCache(EVICTLINE,get_addr(set_temp,LRU_addr));
-				 BusOperation(WRITE,get_addr(set_temp,LRU_addr),&Snoop_result);
-				 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+				 BusOperation(WRITE,get_addr(set_temp,LRU_addr),GetSnoopResult(addr));
+				 BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                  if(GetSnoopResult(addr) == NOHIT)
                  {
                      cache[set_temp].tag_array[LRU_addr] = tag_temp;
@@ -330,7 +348,7 @@ void cache_simulator::read_cache(unsigned int addr){
 			 }
 			 else
 			 {
-			    BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+			    BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                 if(GetSnoopResult(addr) == NOHIT)
                 {
                     cache[set_temp].tag_array[LRU_addr] = tag_temp;
@@ -349,7 +367,7 @@ void cache_simulator::read_cache(unsigned int addr){
              cout<<"[INFO] CACHE MISS AND FOUND A EMPTY LINE "<<endl;
              if(GetSnoopResult(addr) == NOHIT)
              {
-                 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+                 BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                  cache[set_temp].tag_array[empty_way] = tag_temp;
                  update_state(exclusive,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
@@ -357,7 +375,7 @@ void cache_simulator::read_cache(unsigned int addr){
              }
              else if((GetSnoopResult(addr) == HIT) || (GetSnoopResult(addr) == HITM))
              {
-                 BusOperation(READ,(addr&0xfffffff8),&Snoop_result_addr);
+                 BusOperation(READ,(addr&0xfffffff8),GetSnoopResult(addr));
                  cache[set_temp].tag_array[empty_way] = tag_temp;
                  update_state(shared,set_temp,empty_way);
                  updatePLRU(set_temp,empty_way);
@@ -366,6 +384,7 @@ void cache_simulator::read_cache(unsigned int addr){
          }
 	}
 	else{////way hit
+		cache_hits++;
 		cout<<"[INFO] CACHE HIT "<<endl;
 		update_state(current_state,set_temp,way_temp);
 		updatePLRU(set_temp,way_temp);
@@ -480,14 +499,14 @@ int cache_simulator::GetSnoopResult(unsigned int Address) {
 Used to simulate a bus operation and to capture the snoop results of last level
 caches of other processors
 */
-void cache_simulator::BusOperation (int BusOp, unsigned int Address, int *SnoopResult) 
+void cache_simulator::BusOperation (int BusOp, unsigned int Address, int SnoopResult) 
 {
-   *SnoopResult = GetSnoopResult(Address);
+
     string snoopresult_string,busop_string;
 
-    if(GetSnoopResult(Address)==2)
+    if(SnoopResult==2)
         snoopresult_string="HITM";
-    else if(GetSnoopResult(Address)==1)
+    else if(SnoopResult==1)
         snoopresult_string="HIT";
     else
         snoopresult_string="NOHIT";
@@ -500,8 +519,8 @@ void cache_simulator::BusOperation (int BusOp, unsigned int Address, int *SnoopR
         busop_string="INVALIDATE";
     else  if(BusOp==4)
         busop_string="RWIM";
-
-//if (mode == "normal")
+cout<<snoopresult_string;
+if (NormalMode)
      printf("BusOp: %s, Address: %x, Snoop Result: %s \n",busop_string.c_str(),Address,snoopresult_string.c_str());
 
 }
@@ -518,7 +537,7 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
     else 
         snoopresult_string="NOHIT";
 
-//if (NormalMode)
+if (NormalMode)
 	printf("SnoopResult: Address %x, SnoopResult: %s\n", Address, snoopresult_string.c_str());
 }
 
@@ -536,7 +555,7 @@ void cache_simulator::MessageToCache (int Message, unsigned int Address) {
 		l2tol1_message="EVICTLINE";
 
 
-//if (NormalMode)
+if (NormalMode)
 	printf("L2: %s %x \n ", l2tol1_message.c_str(), Address);
 }
 
@@ -617,7 +636,7 @@ int cache_simulator::check_state(unsigned int set, unsigned int way)
 {
 	return (cache[set].tag_array[way] >> 11);
 }
-
+/////////////////////////////////////////////main///////////////////////////////////////////////
 int main(int argc, char* argv[])
 {
 
@@ -641,6 +660,7 @@ int main(int argc, char* argv[])
      if(my_file.is_open())
      {
 	 string line;
+	 cache_sim.clear_cache();
 	 while(getline(my_file, line))
               {
                   istringstream iss(line);
@@ -661,18 +681,25 @@ int main(int argc, char* argv[])
 			   address = s;
                          }
                      }
-              cout<<"\n------------------------------------------------------------------------------------"<<endl;
+              if(mode=="normal")
+              cache_sim.NormalMode=1;
+              else if(mode=="silent")
+              cache_sim.NormalMode=0;
+              if(cache_sim.NormalMode==1)
+              {
+              cout<<"//////////////////////////////////////////////////////////////////////////////////////"<<endl;
 		      cout<<"Command = "<<command<<" Address = "<<address<<"\n";
+		  }
               int_address = cache_sim.HexToDec(address);
+              
 		      switch (command) {
-			      case 0: cout<<"read request from L1 data cache\n\n";  cache_sim.read_cache(int_address); break;
-	                      case 1: cout<<"write request from L1 data cache\n\n"; cache_sim.write_cache(int_address); break;
-			      case 2: cout<<"read request from L1 instruction cache\n\n";  cache_sim.read_cache(int_address); break;
-			      case 3: cout<<"snooped invalidate command\n\n"; cache_sim.snooping(INVALIDATE, int_address); break;
-			      case 4: cout<<"snooped read request\n\n"; cache_sim.snooping(READ, int_address); break;
-			      case 5: cout<<"snooped write request\n\n"; cache_sim.snooping(WRITE, int_address); break;
-			      case 6: cout<<"snooped read with intent to modify request\n\n"; cache_sim.snooping(RWIM, int_address); break;
-			      case 7: break;
+			      case 0: cache_sim.read_cache(int_address); break;
+	              case 1: cache_sim.write_cache(int_address); break;
+			      case 2: cache_sim.read_cache(int_address); break;
+			      case 3: cache_sim.snooping(INVALIDATE, int_address); break;
+			      case 4: cache_sim.snooping(READ, int_address); break;
+			      case 5: cache_sim.snooping(WRITE, int_address); break;
+			      case 6: cache_sim.snooping(RWIM, int_address); break;
 			      case 8: cache_sim.clear_cache(); break;
 			      case 9: cache_sim.print_cache();break;
 			}
@@ -684,6 +711,7 @@ int main(int argc, char* argv[])
     }
 
    }
+   cache_sim.report();
    return 0;
   
 }
