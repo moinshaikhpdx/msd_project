@@ -530,9 +530,9 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
 
   string snoopresult_string;
 
-    if(GetSnoopResult(Address)==HITM)
+    if(SnoopResult==HITM)
         snoopresult_string="HITM";
-    else if(GetSnoopResult(Address)==HIT)
+    else if(SnoopResult==HIT)
         snoopresult_string="HIT";
     else 
         snoopresult_string="NOHIT";
