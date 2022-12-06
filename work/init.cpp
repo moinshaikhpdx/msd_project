@@ -388,7 +388,7 @@ void cache_simulator::read_cache(unsigned int addr){
 		cout<<"[INFO] CACHE HIT "<<endl;
 		update_state(current_state,set_temp,way_temp);
 		updatePLRU(set_temp,way_temp);
-		MessageToCache(SENDLINE,addr);
+		MessageToCache(SENDLINE,get_addr(set_temp,empty_way));
 	}
 }
 
@@ -519,7 +519,7 @@ void cache_simulator::BusOperation (int BusOp, unsigned int Address, int SnoopRe
         busop_string="INVALIDATE";
     else  if(BusOp==4)
         busop_string="RWIM";
-cout<<snoopresult_string;
+
 if (NormalMode)
      printf("BusOp: %s, Address: %x, Snoop Result: %s \n",busop_string.c_str(),Address,snoopresult_string.c_str());
 
@@ -530,9 +530,9 @@ void cache_simulator::PutSnoopResult(unsigned int Address, int SnoopResult) {
 
   string snoopresult_string;
 
-    if(GetSnoopResult(Address)==2)
+    if(GetSnoopResult(Address)==HITM)
         snoopresult_string="HITM";
-    else if(GetSnoopResult(Address)==1)
+    else if(GetSnoopResult(Address)==HIT)
         snoopresult_string="HIT";
     else 
         snoopresult_string="NOHIT";
